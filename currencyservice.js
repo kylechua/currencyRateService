@@ -25,24 +25,6 @@ function getRateInUSD (code, db){
     else {
         throw new invalidCurrencyException();
     }
-    /*
-    switch (code) {
-        case "AUD":
-            return db.AUD;
-            break;
-        case "CAD":
-            return db.CAD;
-            break;
-        case "CNY":
-            return db.CNY;
-            break;
-        case "USD":
-            return db.USD;
-            break;
-        default:
-            throw new invalidCurrencyException();
-    }
-    */
 }
 
 function invalidCurrencyException(){
