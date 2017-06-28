@@ -6,10 +6,11 @@ var currency = require('./currencyservice.js');
 // Database which stores exchange rates and modifier
 var databaseURL = './data.json';
 // Frequency of updating exchange rates
-var xcInt = (1)*(3600000); // (1 hour)*(3,600,000 ms in an hour)
+var xcInt = (0.05)*(3600000); // (1 hour)*(3,600,000 ms in an hour)
 
 /* Parse Database */
 var db;
+
 try {
     db = JSON.parse(fs.readFileSync(databaseURL, 'utf8'));
 } catch(e) {
@@ -149,6 +150,6 @@ server.on('modifier', function(request, response, newValue, db){
         }
     } else {
         // GET, get the modifier
-        response.write(String(db.mod));
+        response.write(String(db.modifier));
     }
 });

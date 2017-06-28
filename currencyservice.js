@@ -13,7 +13,7 @@ exports.getSellingRate = function(from, to, db) {
         var rate = getRateInUSD(from, db)/getRateInUSD(to, db);
         return rate;
     } catch(e) {
-        // throw exception to whatever called this function
+        // throw exception up one scope
         throw e;
     }
 }
