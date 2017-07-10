@@ -22,7 +22,7 @@ Storage: File
 * Return
     * Response code
     
-### GET /currency/rates/buy/{from}{to}
+### GET /currency/rates/buy/{from}/{to}
 
 * Parameters
     * {from}: ISO 4217 currency code
@@ -31,7 +31,7 @@ Storage: File
     * Response code
     * Decimal value
 
-### GET /currency/rates/sell/{from}{to}
+### GET /currency/rates/sell/{from}/{to}
 * Parameters
     * {from}: ISO 4217 currency code
     * {to}: ISO 4217 currency code

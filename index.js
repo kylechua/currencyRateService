@@ -1,6 +1,8 @@
 const http = require('http');
 const path = require('path');
+const URL = require('url');
 const fs = require('fs');
+const PREFIX = "/v2/";
 
 var currency = require('./currencyservice.js');
 // Database which stores exchange rates and modifier
@@ -62,15 +64,13 @@ function updateRates() {
 server.on('request', function (request, response) {
     var myPath = path.parse(request.url);
     var pathStr = path.format(myPath);
-    var params = myPath.base;
-
-    if (pathStr.indexOf('/currency/rates') != -1) {
+    if (pathStr.indexOf(PREFIX + 'currency/rates') != -1) {
         if (pathStr.indexOf('/buy/') != -1) {
-            server.emit("buying", response, params, db);
+            server.emit("buying", request, response, db);
         } else if (pathStr.indexOf('/sell/') != -1) {
-            server.emit("selling", response, params, db);
+            server.emit("selling", request, response, db);
         } else if (pathStr.indexOf('/modifier') != -1) {
-            server.emit("modifier", request, response, params, db);
+            server.emit("modifier", request, response, db);
         } else {
             // 405: Method Not Allowed
             response.statusCode = 405;
@@ -91,12 +91,22 @@ server.on('request', function (request, response) {
  *   - Response code
  *   - Decimal(4,3)
  */
-server.on('buying', function (response, fromto, db) {
-    var from = fromto.substring(0, 3);
-    var to = fromto.substring(3);
+server.on('buying', function (request, response, db) {
+    var url = URL.parse(request.url, true).path;
+    var temp = url.split('?')[0];
+    var temp = temp.split('/');
+    var from = temp[temp.length - 2];
+    var to = temp[temp.length - 1];
+
     try {
         var rate = currency.getBuyingRate(from, to, db);
-        response.write(String(currency.getBuyingRate(from, to, db)));
+        response.write(JSON.stringify({
+            "code": 200,
+            "data": {
+                "rate": String(rate),
+                "updated_at": db.updated
+            }
+        }));
     } catch (e) {
         // 400: Bad Request
         response.statusCode = 400;
@@ -112,12 +122,21 @@ server.on('buying', function (response, fromto, db) {
  *   - Response code
  *   - Decimal(4,3)
  */
-server.on('selling', function (response, fromto, db) {
-    var from = fromto.substring(0, 3);
-    var to = fromto.substring(3);
+server.on('selling', function (request, response, db) {
+    var url = URL.parse(request.url, true).path;
+    var temp = url.split('?')[0];
+    var temp = temp.split('/');
+    var from = temp[temp.length - 2];
+    var to = temp[temp.length - 1];
     try {
         var rate = currency.getSellingRate(from, to, db);
-        response.write(String(rate));
+        response.write(JSON.stringify({
+            "code": 200,
+            "data": {
+                "rate": String(rate),
+                "updated_at": db.updated
+            }
+        }));
     } catch (e) {
         // 400: Bad Request
         response.statusCode = 400;
@@ -135,14 +154,22 @@ server.on('selling', function (response, fromto, db) {
  *  Return
  *   - Response code
  */
-server.on('modifier', function (request, response, newValue, db) {
+server.on('modifier', function (request, response, db) {
     if (request.method == 'POST') {
         // POST, update the modifier
+        var url = URL.parse(request.url, true).path;
+        var temp = url.split('/');
+        var newValue = temp[temp.length - 1];
         var val = parseFloat(newValue);
         if (!isNaN(val)) {
             db.modifier = val;
             fs.writeFileSync(databaseURL, JSON.stringify(db));
-            response.write("Set modifier to: " + val);
+            response.write(JSON.stringify({
+                "code": 200,
+                "data": {
+                    "modifier": val
+                }
+            }));
         } else {
             // 400: Bad Request
             response.statusCode = 400;
@@ -150,7 +177,12 @@ server.on('modifier', function (request, response, newValue, db) {
         }
     } else {
         // GET, get the modifier
-        response.write(String(db.modifier));
+        response.write(JSON.stringify({
+            "code": 200,
+            "data": {
+                "modifier": String(db.modifier)
+            }
+        }));
     }
 });
 
