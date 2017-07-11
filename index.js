@@ -12,12 +12,17 @@ var supportedCurrencies = [
         "USD",
         "CAD",
         "AUD",
+        "NZD",
         "CNY",
-        "EUR"
+        "JPY",
+        "HKD",
+        "KRW",
+        "EUR",
+        "GBP"
     ];
 
 /* Frequency of updating exchange rates */
-var xcInt = (3/60) * (3600000); // (1 hour)*(3,600,000 ms in an hour)
+var xcInt = (1) * (3600000); // (1 hour)*(3,600,000 ms in an hour)
 
 /* Parse Database */
 var db;
