@@ -5,7 +5,16 @@ const fs = require('fs');
 const currency = require('./currencyservice.js');
 
 const PREFIX = "/v2/";
-const dbURL = "./data.json";
+const dbURL = "./data/db.json";
+
+/* List of currencies */
+var supportedCurrencies = [
+        "USD",
+        "CAD",
+        "AUD",
+        "CNY",
+        "EUR"
+    ];
 
 /* Frequency of updating exchange rates */
 var xcInt = (3/60) * (3600000); // (1 hour)*(3,600,000 ms in an hour)
@@ -16,23 +25,15 @@ var db;
 try {
     db = JSON.parse(fs.readFileSync(dbURL, 'utf8'));
 } catch (e) {
-    // Create JSON if file URL is invalid
+    /* Create JSON if file URL is invalid*/
+    /* Default settings */
     db = { yahoo: {rates: {}}, local: {rates: {}} };
     db.modifier = 1;
     db.source = "yahoo";
+
     fs.writeFileSync(dbURL, JSON.stringify(db));
     console.log("Currency service: could not find '" + dbURL + "'. New database created.");
 }
-
-/* Set default modifier and source */
-// if (db.modifier == undefined || isNaN(db.modifier)) {
-//     db.modifier = 1;
-//     fs.writeFileSync(dbURL, JSON.stringify(db));
-// }
-// if (db.source == undefined) {
-//     db.source = "yahoo";
-//     fs.writeFileSync(dbURL, JSON.stringify(db));
-// }
 
 /* Initialize Server */
 var server = http.createServer().listen(8888);
@@ -41,12 +42,25 @@ var server = http.createServer().listen(8888);
 var currencyScheduler = setInterval(updateRates, xcInt);
 updateRates();
 
+/* If no local rates are specified, set local rates to current Yahoo rates */
+if (db.local.rates["USD"] == undefined){
+    db.local.rates = db.yahoo.rates;
+    fs.writeFileSync(dbURL, JSON.stringify(db));
+}
+
 /* Pull exchange rates of currencies (in USD) from Yahoo API
  * Store exchange rates in database
  */
 function updateRates() {
-    var myURL = 'http://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20yahoo.finance.xchange%20where%20pair%20in%20(%22USDEUR%22%2C%20%22USDGBP%22%2C%20%22USDJPY%22%2C%20%22USDCAD%22%2C%20%22USDCNY%22%2C%20%22USDHKD%22%2C%20%22USDKRW%22%2C%20%22USDAUD%22%2C%20%22USDUSD%22)&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=';
+    /* Get query for every currency in currCodes */
+    var myURL = 'http://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20yahoo.finance.xchange%20where%20pair%20in%20('
+    supportedCurrencies.forEach(function(code){
+        myURL += '%22USD' + code + '%22%2C%20';
+    });
+    myURL = myURL.substring(0, myURL.length-6);
+    myURL += ')&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=';
 
+    /* Request from Yahoo API */
     http.get(myURL, function (response) {
         var body = '';
         response.on('data', function (line) {
@@ -80,6 +94,8 @@ server.on('request', function (request, response) {
             server.emit("selling", request, response, db);
         } else if (pathStr.indexOf('/modifier') != -1) {
             server.emit("modifier", request, response, db);
+        } else if (pathStr.indexOf('/update/') != -1) {
+            server.emit("update", request, response, db);
         } else if (pathStr.indexOf('/source') != -1) {
             server.emit("source", request, response, db);
         } else {
@@ -100,7 +116,7 @@ server.on('request', function (request, response) {
  *   - {to}: ISO 4217 currency code
  *  Return
  *   - Response code
- *   - Decimal(4,3)
+ *   - Decimal value
  */
 server.on('buying', function (request, response, db) {
     var url = URL.parse(request.url, true).path;
@@ -108,8 +124,6 @@ server.on('buying', function (request, response, db) {
     var temp = temp.split('/');
     var from = temp[temp.length - 2];
     var to = temp[temp.length - 1];
-
-    console.log(from + " " + to)
 
     try {
         var rate = currency.getBuyingRate(from, to, db);
@@ -127,7 +141,8 @@ server.on('buying', function (request, response, db) {
             "code": 400,
             "data": {
                 "source": db.source,
-                "updated_at": db[db.source].updated
+                "updated_at": db[db.source].updated,
+                "message": e
             }
         }));
     }
@@ -159,8 +174,10 @@ server.on('selling', function (request, response, db) {
         }));
     } catch (e) {
         // 400: Bad Request
+        console.log(e);
         response.write(JSON.stringify({
             "code": 400,
+            "message": e,
             "data": {
                 "source": db.source,
                 "updated_at": db[db.source].updated
@@ -169,38 +186,87 @@ server.on('selling', function (request, response, db) {
     }
 });
 
+/* POST /currency/rates/update/{currency}/{rate}
+ *  Parameters
+ *  - {currency}: ISO 4217 currency code
+ *  - {rate}: Decimal value (buying rate in USD)
+ *  Return
+ *  - Response code
+ *  - Decimal value
+ */
+server.on('update', function (request, response, db) {
+    if (request.method == 'POST') {
+        var url = URL.parse(request.url, true).path;
+        var temp = url.split('?')[0];
+        var temp = temp.split('/');
+        var currency = temp[temp.length - 2].toUpperCase();
+        var rate = parseFloat(temp[temp.length - 1]);
+        if (!isNaN(rate)){
+            if (supportedCurrencies.includes(currency)){
+                db.local.rates[currency] = rate;
+                var today = new Date();
+                db.local["updated"] = today;
+                fs.writeFileSync(dbURL, JSON.stringify(db));
+                var msg = "Updated Local " + currency + " to " + rate + " " + currency + "/USD";
+                response.write(JSON.stringify({
+                    "code": 200,
+                    "message": msg,
+                    "data": {
+                        "currency": currency,
+                        "rate": String(rate)
+                    }
+                }));
+            } else {
+                var msg = "Unable to update local rate. " + currency + " is not a supported currency.";
+                response.write(JSON.stringify({
+                    "code": 400,
+                    "message": msg,
+                    "data": {
+                        "currency": currency,
+                        "supported_currencies": supportedCurrencies
+                    }
+                }));
+            }
+        }
+    }
+});
+
 /* GET /currency/rates/modifier
  *  Return
- *   - Response code
- *   - Decimal(4,3)
- * POST /currency/rates/modifier/{value}
+ *  - Response code
+ *  - Decimal value
+ * POST /currency/rates/modifier/{newValue}
  *  Parameters
- *   - Decimal(4,3)
+ *  - {newValue}: Decimal value
  *  Return
- *   - Response code
+ *  - Response code
+ *  - Decimal value
  */
 server.on('modifier', function (request, response, db) {
     if (request.method == 'POST') {
         // POST, update the modifier
         var url = URL.parse(request.url, true).path;
-        var temp = url.split('/');
+        var temp = url.split('?')[0];
+        var temp = temp.split('/');
         var newValue = temp[temp.length - 1];
         var val = parseFloat(newValue);
         if (!isNaN(val)) {
             db.modifier = val;
             fs.writeFileSync(dbURL, JSON.stringify(db));
-            console.log("Updated modifier to " + val ".");
+            var msg = "Updated modifier to " + val + ".";
             response.write(JSON.stringify({
                 "code": 200,
+                "message": msg,
                 "data": {
                     "modifier": val
                 }
             }));
         } else {
             // 400: Bad Request
-            console.log("Expected a number. Currency service modifier is still " + db.modifier + ".");
+            var msg = "Expected a number. Currency service modifier is still " + db.modifier + ".";
             response.write(JSON.stringify({
-                "code": 400
+                "code": 400,
+                "message": msg
             }));
         }
     } else if (request.method == 'GET') {
@@ -219,9 +285,9 @@ server.on('modifier', function (request, response, db) {
  *   - Response code
  *   - String
  *  POST /currency/rates/source/{newSource}
- *  Parameters
+ *   Parameters
  *   - String
- *  Return
+ *   Return
  *   - Response code
  *   - String
  */
@@ -229,25 +295,27 @@ server.on('source', function (request, response, db) {
     if (request.method == 'POST') {
         // POST, update the source of exchange rates
         var url = URL.parse(request.url, true).path;
-        var temp = url.split('/');
+        var temp = url.split('?')[0];
+        var temp = temp.split('/');
         var source = temp[temp.length - 1].toLowerCase();
         var res = {
                 "code": 200,
-                "data": {}
+                "data": {},
+                "message": undefined
             }
         if (source.indexOf("yahoo") != -1){
             db.source = "yahoo";
             fs.writeFileSync(dbURL, JSON.stringify(db));
             res.data.source = db.source;
-            console.log("Currency service is now using Yahoo rates.")
+            res.message = "Currency service is now using Yahoo rates.";
         } else if (source.indexOf("local") != -1){
             db.source = "local";
             fs.writeFileSync(dbURL, JSON.stringify(db));
             res.data.source = db.source;
-            console.log("Currency service is now using local rates.")
+            res.message = "Currency service is now using local rates.";
         } else {
             res.code = 400;
-            console.log("Invalid source specified. Currency service source is still using " + db.source + " rates.");
+            res.message = "Invalid source specified. Currency service source is still using " + db.source + " rates.";
         }
         response.write(JSON.stringify(res));
     } else if (request.method == 'GET') {
@@ -257,6 +325,6 @@ server.on('source', function (request, response, db) {
             "data": {
                 "source": db.source
             }
-        }))
+        }));
     }
 });

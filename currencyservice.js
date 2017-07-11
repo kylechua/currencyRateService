@@ -29,6 +29,6 @@ function getRateInUSD (code, db){
 }
 
 function invalidCurrencyException(){
-    this.message = "One or more invalid or unsupported currencies were specified. Make sure to use 4217 ISO format (example: Canadian Dollars to U.S. Dollars should be written as 'CADUSD')";
-    this.name = 'invalidCurrency';
+    this.message = "One or more unsupported currency codes were specified.";
+    this.name = 'invalid_currency';
 }
