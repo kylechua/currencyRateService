@@ -1,10 +1,12 @@
-## Currency Rate Service
+Currency Rate Service
+=====================
 
 This currency service returns the exchange rate of two given currency names. We can also set and read a "rate modifier" which will be used when getting the "buy" rates. The exchange rates will be updated every hour from the Yahoo Finance API. Exchange rates can also be set/managed locally.
 
 * Language: NodeJS
 * Storage: File
--
+
+==
 
 ### GET /currency/rates/modifier
 * Return
@@ -18,7 +20,7 @@ This currency service returns the exchange rate of two given currency names. We 
     * Response code
     * Decimal value
 
----
+==
     
 ### GET /currency/rates/buy/{from}/{to}
 * Parameters
