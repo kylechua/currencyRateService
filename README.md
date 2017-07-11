@@ -6,7 +6,7 @@ This currency service returns the exchange rate of two given currency names. We 
 * Language: NodeJS
 * Storage: File
 
-==
+---
 
 ### GET /currency/rates/modifier
 * Return
@@ -20,7 +20,7 @@ This currency service returns the exchange rate of two given currency names. We 
     * Response code
     * Decimal value
 
-==
+---
     
 ### GET /currency/rates/buy/{from}/{to}
 * Parameters
@@ -37,6 +37,8 @@ This currency service returns the exchange rate of two given currency names. We 
 * Return
     * Response code
     * Decimal value
+
+---
 
 ### POST /currency/rates/update/{currency}/{rate}
 * Parameters
