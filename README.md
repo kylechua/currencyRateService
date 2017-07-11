@@ -11,9 +11,6 @@ Storage: File
 * Return
     * Response code
     * Decimal value
-    
-
-
 
 ### POST /currency/rates/modifier/{newValue}
 
@@ -21,6 +18,7 @@ Storage: File
     * {newValue}: Decimal value
 * Return
     * Response code
+    * Decimal value
     
 ### GET /currency/rates/buy/{from}/{to}
 
@@ -32,9 +30,24 @@ Storage: File
     * Decimal value
 
 ### GET /currency/rates/sell/{from}/{to}
+
 * Parameters
     * {from}: ISO 4217 currency code
     * {to}: ISO 4217 currency code
 * Return
     * Response code
     * Decimal value
+
+### GET /currency/rates/source
+
+* Return
+    * Response code
+    * String
+
+### POST /currency/rates/source/{newSource}
+
+* Parameters
+    * {newSource}: Source of exchange rates (yahoo, local)
+* Return
+    * Response code
+    * String

@@ -19,7 +19,8 @@ exports.getSellingRate = function(from, to, db) {
 }
 
 function getRateInUSD (code, db){
-    var rate = db[code];
+    var source = db.source;
+    var rate = db[source].rates[code];
     if (!isNaN(rate))
         return rate;
     else {
