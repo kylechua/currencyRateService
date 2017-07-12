@@ -85,7 +85,7 @@ function updateRates() {
         })
     }).on('error', function (e) {
         console.error("Error retrieving Yahoo exchange rates: " + e.message);
-    })
+    });
 }
 
 /* Main Event Handler */
@@ -101,6 +101,8 @@ server.on('request', function (request, response) {
             server.emit("modifier", request, response, db);
         } else if (pathStr.indexOf('/update/') != -1) {
             server.emit("update", request, response, db);
+        } else if (pathStr.indexOf('/sync/') != -1) {
+            server.emit("sync", request, response, db);
         } else if (pathStr.indexOf('/source') != -1) {
             server.emit("source", request, response, db);
         } else {
@@ -159,7 +161,7 @@ server.on('buying', function (request, response, db) {
  *   - {to}: ISO 4217 currency code
  *  Return
  *   - Response code
- *   - Decimal(4,3)
+ *   - Decimal value
  */
 server.on('selling', function (request, response, db) {
     var url = URL.parse(request.url, true).path;
@@ -235,6 +237,59 @@ server.on('update', function (request, response, db) {
         }
     }
 });
+
+/* Sync the yahoo rates with yahoo API, the local rates with yahoo rates, or both
+ * POST /currency/rates/sync/{source}
+ *  Parameters
+ *  - {source}: String ("yahoo", "local", or "all")
+ *  Return
+ *  - Response code
+ *  - Decimal value
+ */
+server.on('sync', function (request, response, db) {
+    if (request.method == 'POST') {
+        var url = URL.parse(request.url, true).path;
+        var temp = url.split('?')[0];
+        var temp = temp.split('/');
+        var source = temp[temp.length - 1];
+        if (source.indexOf("yahoo") != -1) {
+            updateRates();
+            var msg = "Yahoo rates synced with Yahoo API";
+            response.write(JSON.stringify({
+                "code": 200,
+                "message": msg
+            }));
+        } else if (source.indexOf("local") != -1) {
+            db.local.rates = db.yahoo.rates;
+            var today = new Date();
+            db.local["updated"] = today;
+            fs.writeFileSync(dbURL, JSON.stringify(db));
+            var msg = "Local rates synced with Yahoo rates";
+            response.write(JSON.stringify({
+                "code": 200,
+                "message": msg
+            }));
+        } else if (source.indexOf("all") != -1) {
+            updateRates();
+            db.local.rates = db.yahoo.rates;
+            var today = new Date();
+            db.local["updated"] = today;
+            fs.writeFileSync(dbURL, JSON.stringify(db));
+            var msg = "All rates synced with Yahoo API";
+            response.write(JSON.stringify({
+                "code": 200,
+                "message": msg
+            }));
+        } else {
+            // 400: Bad Request
+            var msg = source + " is an invalid source.";
+            response.write(JSON.stringify({
+                "code": 400,
+                "message": msg
+            }));
+        }
+    }
+})
 
 /* GET /currency/rates/modifier
  *  Return

@@ -59,3 +59,9 @@ This currency service returns the exchange rate of two given currency names. We 
 * Return
     * Response code
     * String
+
+### POST /currency/rates/sync/{source}
+* Parameters
+    * {source}: Source of exchange rates (yahoo, local, all)
+* Return
+    * Response code
